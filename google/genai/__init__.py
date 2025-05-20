@@ -15,9 +15,11 @@
 
 """Google Gen AI SDK"""
 
+from . import version
 from .client import Client
-from . import  version
+from .live import live_ephemeral_connect
+
 
 __version__ = version.__version__
 
-__all__ = ['Client']
+__all__ = ['Client', 'live_ephemeral_connect']

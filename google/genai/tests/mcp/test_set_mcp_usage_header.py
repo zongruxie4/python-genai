@@ -38,7 +38,7 @@ else:
 def test_set_mcp_usage_header_from_empty_dict():
   if not _is_mcp_imported:
     return
-  """Test whether the MCP usage header is set correctly."""
+  """Test whether the MCP usage header is set correctly from an empty dict."""
   headers = {}
   _mcp_utils.set_mcp_usage_header(headers)
   assert re.match(r'mcp_used/\d+\.\d+\.\d+', headers['x-goog-api-client'])
@@ -47,8 +47,24 @@ def test_set_mcp_usage_header_from_empty_dict():
 def test_set_mcp_usage_header_with_existing_header():
   if not _is_mcp_imported:
     return
-  """Test whether the MCP usage header is set correctly."""
+  """Test whether the MCP usage header is set correctly from an existing header."""
   headers = {'x-goog-api-client': 'google-genai-sdk/1.0.0 gl-python/1.0.0'}
+  _mcp_utils.set_mcp_usage_header(headers)
+  assert re.match(
+      r'google-genai-sdk/1.0.0 gl-python/1.0.0 mcp_used/\d+\.\d+\.\d+',
+      headers['x-goog-api-client'],
+  )
+
+
+def test_set_mcp_usage_header_with_existing_mcp_header():
+  if not _is_mcp_imported:
+    return
+  """Test whether the MCP usage header is set correctly from an existing MCP header."""
+  headers = {
+      'x-goog-api-client': (
+          'google-genai-sdk/1.0.0 gl-python/1.0.0 mcp_used/1.0.0'
+      )
+  }
   _mcp_utils.set_mcp_usage_header(headers)
   assert re.match(
       r'google-genai-sdk/1.0.0 gl-python/1.0.0 mcp_used/\d+\.\d+\.\d+',

@@ -11618,6 +11618,9 @@ LiveClientMessageOrDict = Union[LiveClientMessage, LiveClientMessageDict]
 class LiveConnectConfig(_common.BaseModel):
   """Session config for the API connection."""
 
+  http_options: Optional[HttpOptions] = Field(
+      default=None, description="""Used to override HTTP request options."""
+  )
   generation_config: Optional[GenerationConfig] = Field(
       default=None,
       description="""The generation configuration for the session.""",
@@ -11728,6 +11731,9 @@ If included the server will send SessionResumptionUpdate messages.""",
 
 class LiveConnectConfigDict(TypedDict, total=False):
   """Session config for the API connection."""
+
+  http_options: Optional[HttpOptionsDict]
+  """Used to override HTTP request options."""
 
   generation_config: Optional[GenerationConfigDict]
   """The generation configuration for the session."""
@@ -12303,4 +12309,151 @@ class LiveMusicSetWeightedPromptsParametersDict(TypedDict, total=False):
 LiveMusicSetWeightedPromptsParametersOrDict = Union[
     LiveMusicSetWeightedPromptsParameters,
     LiveMusicSetWeightedPromptsParametersDict,
+]
+
+
+class AuthToken(_common.BaseModel):
+  """Config for auth_tokens.create parameters."""
+
+  name: Optional[str] = Field(
+      default=None, description="""The name of the auth token."""
+  )
+
+
+class AuthTokenDict(TypedDict, total=False):
+  """Config for auth_tokens.create parameters."""
+
+  name: Optional[str]
+  """The name of the auth token."""
+
+
+AuthTokenOrDict = Union[AuthToken, AuthTokenDict]
+
+
+class LiveEphemeralParameters(_common.BaseModel):
+  """Config for LiveEphemeralParameters for Auth Token creation."""
+
+  model: Optional[str] = Field(
+      default=None,
+      description="""ID of the model to configure in the ephemeral token for Live API.
+      For a list of models, see `Gemini models
+      <https://ai.google.dev/gemini-api/docs/models>`.""",
+  )
+  config: Optional[LiveConnectConfig] = Field(
+      default=None,
+      description="""Configuration specific to Live API connections created using this token.""",
+  )
+
+
+class LiveEphemeralParametersDict(TypedDict, total=False):
+  """Config for LiveEphemeralParameters for Auth Token creation."""
+
+  model: Optional[str]
+  """ID of the model to configure in the ephemeral token for Live API.
+      For a list of models, see `Gemini models
+      <https://ai.google.dev/gemini-api/docs/models>`."""
+
+  config: Optional[LiveConnectConfigDict]
+  """Configuration specific to Live API connections created using this token."""
+
+
+LiveEphemeralParametersOrDict = Union[
+    LiveEphemeralParameters, LiveEphemeralParametersDict
+]
+
+
+class CreateAuthTokenConfig(_common.BaseModel):
+  """Optional parameters."""
+
+  http_options: Optional[HttpOptions] = Field(
+      default=None, description="""Used to override HTTP request options."""
+  )
+  expire_time: Optional[datetime.datetime] = Field(
+      default=None,
+      description="""An optional time after which, when using the resulting token,
+      messages in Live API sessions will be rejected. (Gemini may
+      preemptively close the session after this time.)
+
+      If not set then this defaults to 30 minutes in the future. If set, this
+      value must be less than 20 hours in the future.""",
+  )
+  new_session_expire_time: Optional[datetime.datetime] = Field(
+      default=None,
+      description="""The time after which new Live API sessions using the token
+      resulting from this request will be rejected.
+
+      If not set this defaults to 60 seconds in the future. If set, this value
+      must be less than 20 hours in the future.""",
+  )
+  uses: Optional[int] = Field(
+      default=None,
+      description="""The number of times the token can be used. If this value is zero
+      then no limit is applied. Default is 1. Resuming a Live API session does
+      not count as a use.""",
+  )
+  live_ephemeral_parameters: Optional[LiveEphemeralParameters] = Field(
+      default=None,
+      description="""Configuration specific to Live API connections created using this token.""",
+  )
+  lock_additional_fields: Optional[list[str]] = Field(
+      default=None,
+      description="""Additional fields to lock in the effective LiveConnectParameters.""",
+  )
+
+
+class CreateAuthTokenConfigDict(TypedDict, total=False):
+  """Optional parameters."""
+
+  http_options: Optional[HttpOptionsDict]
+  """Used to override HTTP request options."""
+
+  expire_time: Optional[datetime.datetime]
+  """An optional time after which, when using the resulting token,
+      messages in Live API sessions will be rejected. (Gemini may
+      preemptively close the session after this time.)
+
+      If not set then this defaults to 30 minutes in the future. If set, this
+      value must be less than 20 hours in the future."""
+
+  new_session_expire_time: Optional[datetime.datetime]
+  """The time after which new Live API sessions using the token
+      resulting from this request will be rejected.
+
+      If not set this defaults to 60 seconds in the future. If set, this value
+      must be less than 20 hours in the future."""
+
+  uses: Optional[int]
+  """The number of times the token can be used. If this value is zero
+      then no limit is applied. Default is 1. Resuming a Live API session does
+      not count as a use."""
+
+  live_ephemeral_parameters: Optional[LiveEphemeralParametersDict]
+  """Configuration specific to Live API connections created using this token."""
+
+  lock_additional_fields: Optional[list[str]]
+  """Additional fields to lock in the effective LiveConnectParameters."""
+
+
+CreateAuthTokenConfigOrDict = Union[
+    CreateAuthTokenConfig, CreateAuthTokenConfigDict
+]
+
+
+class CreateAuthTokenParameters(_common.BaseModel):
+  """Config for auth_tokens.create parameters."""
+
+  config: Optional[CreateAuthTokenConfig] = Field(
+      default=None, description="""Optional parameters for the request."""
+  )
+
+
+class CreateAuthTokenParametersDict(TypedDict, total=False):
+  """Config for auth_tokens.create parameters."""
+
+  config: Optional[CreateAuthTokenConfigDict]
+  """Optional parameters for the request."""
+
+
+CreateAuthTokenParametersOrDict = Union[
+    CreateAuthTokenParameters, CreateAuthTokenParametersDict
 ]

@@ -24,8 +24,11 @@ from typing import Any, Callable, Dict, Optional, Union, get_args, get_origin
 import pydantic
 
 from . import _common
+from . import _mcp_utils
 from . import errors
 from . import types
+from ._adapters import McpToGenAiToolAdapter
+
 
 if sys.version_info >= (3, 10):
   from types import UnionType
@@ -35,20 +38,15 @@ else:
 if typing.TYPE_CHECKING:
   from mcp import ClientSession as McpClientSession
   from mcp.types import Tool as McpTool
-  from ._adapters import McpToGenAiToolAdapter
-  from . import _mcp_utils
 else:
   McpClientSession: typing.Type = Any
-  McpToGenAiToolAdapter: typing.Type = Any
+  McpTool: typing.Type = Any
   try:
     from mcp import ClientSession as McpClientSession
     from mcp.types import Tool as McpTool
-    from ._adapters import McpToGenAiToolAdapter
-    from . import _mcp_utils
   except ImportError:
     McpClientSession = None
     McpTool = None
-    McpToGenAiToolAdapter = None
 
 _DEFAULT_MAX_REMOTE_CALLS_AFC = 10
 

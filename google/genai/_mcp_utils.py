@@ -17,7 +17,7 @@
 
 from importlib.metadata import PackageNotFoundError, version
 import typing
-from typing import Any, Union
+from typing import Any
 
 from . import types
 
@@ -83,9 +83,13 @@ def set_mcp_usage_header(headers: dict[str, str]) -> None:
     version_label = version("mcp")
   except PackageNotFoundError:
     version_label = "0.0.0"
-  headers["x-goog-api-client"] = (
-      headers.get("x-goog-api-client", "") + f" mcp_used/{version_label}"
-  ).lstrip()
+  # TODO: b/418827318 - Investigate weather the duplicate mcp label check is
+  # necessary.
+  mcp_label = f"mcp_used/{version_label}"
+  existing_header = headers.get("x-goog-api-client", "")
+  if mcp_label in existing_header:
+    return
+  headers["x-goog-api-client"] = (existing_header + f" {mcp_label}").lstrip()
 
 
 def _filter_to_supported_schema(schema: dict[str, Any]) -> dict[str, Any]:

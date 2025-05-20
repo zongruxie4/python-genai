@@ -21,7 +21,7 @@ import contextlib
 import json
 import logging
 import typing
-from typing import Any, AsyncIterator, Dict, Optional, Sequence, Union, cast, get_args
+from typing import Any, AsyncIterator, Dict, Optional, Sequence, Union, get_args
 import warnings
 
 import google.auth
@@ -45,11 +45,11 @@ from .models import _Content_to_vertex
 
 try:
   from websockets.asyncio.client import ClientConnection
-  from websockets.asyncio.client import connect
+  from websockets.asyncio.client import connect as ws_connect
 except ModuleNotFoundError:
   # This try/except is for TAP, mypy complains about it which is why we have the type: ignore
   from websockets.client import ClientConnection  # type: ignore
-  from websockets.client import connect  # type: ignore
+  from websockets.client import connect as ws_connect  # type: ignore
 
 if typing.TYPE_CHECKING:
   from mcp import ClientSession as McpClientSession
@@ -77,6 +77,9 @@ _FUNCTION_RESPONSE_REQUIRES_ID = (
     'FunctionResponse request must have an `id` field from the'
     ' response of a ToolCall.FunctionalCalls in Google AI.'
 )
+
+
+_DUMMY_KEY = 'dummy_key'
 
 
 class AsyncSession:
@@ -891,21 +894,61 @@ class AsyncLive(_api_module.BaseModule):
       client = genai.Client(api_key=API_KEY)
       config = {}
       async with client.aio.live.connect(model='...', config=config) as session:
-        await session.send(input='Hello world!', end_of_turn=True)
+        await session.send_client_content(
+          turns=types.Content(
+            role='user',
+            parts=[types.Part(text='hello!')]
+          ),
+          turn_complete=True
+        )
         async for message in session.receive():
           print(message)
+
+    Args:
+      model: The model to use for the live session.
+      config: The configuration for the live session.
+      **kwargs: additional keyword arguments.
+
+    Yields:
+      An AsyncSession object.
     """
+    async with self._connect(
+        model=model,
+        config=config,
+    ) as session:
+      yield session
+
+  @contextlib.asynccontextmanager
+  async def _connect(
+      self,
+      *,
+      model: Optional[str] = None,
+      config: Optional[types.LiveConnectConfigOrDict] = None,
+      uri: Optional[str] = None,
+  ) -> AsyncIterator[AsyncSession]:
+
+    # TODO(b/404946570): Support per request http options.
+    if isinstance(config, dict):
+      config = types.LiveConnectConfig(**config)
+    if config and config.http_options and uri is None:
+      raise ValueError(
+          'google.genai.client.aio.live.connect() does not support'
+          ' http_options at request-level in LiveConnectConfig yet. Please use'
+          ' the client-level http_options configuration instead.'
+      )
+
     base_url = self._api_client._websocket_base_url()
     if isinstance(base_url, bytes):
       base_url = base_url.decode('utf-8')
-    transformed_model = t.t_model(self._api_client, model)
+    transformed_model = t.t_model(self._api_client, model)  # type: ignore
 
     parameter_model = await _t_live_connect_config(self._api_client, config)
 
     if self._api_client.api_key:
       api_key = self._api_client.api_key
       version = self._api_client._http_options.api_version
-      uri = f'{base_url}/ws/google.ai.generativelanguage.{version}.GenerativeService.BidiGenerateContent?key={api_key}'
+      if uri is None:
+        uri = f'{base_url}/ws/google.ai.generativelanguage.{version}.GenerativeService.BidiGenerateContent?key={api_key}'
       headers = self._api_client._http_options.headers
 
       request_dict = _common.convert_to_dict(
@@ -925,7 +968,7 @@ class AsyncLive(_api_module.BaseModule):
     else:
       if not self._api_client._credentials:
         # Get bearer token through Application Default Credentials.
-        creds, _ = google.auth.default(  # type: ignore[no-untyped-call]
+        creds, _ = google.auth.default(  # type: ignore
             scopes=['https://www.googleapis.com/auth/cloud-platform']
         )
       else:
@@ -933,7 +976,7 @@ class AsyncLive(_api_module.BaseModule):
       # creds.valid is False, and creds.token is None
       # Need to refresh credentials to populate those
       if not (creds.token and creds.valid):
-        auth_req = google.auth.transport.requests.Request()  # type: ignore[no-untyped-call]
+        auth_req = google.auth.transport.requests.Request()  # type: ignore
         creds.refresh(auth_req)
       bearer_token = creds.token
       headers = self._api_client._http_options.headers
@@ -981,18 +1024,95 @@ class AsyncLive(_api_module.BaseModule):
         headers = {}
       _mcp_utils.set_mcp_usage_header(headers)
     try:
-      async with connect(uri, additional_headers=headers) as ws:
+      async with ws_connect(uri, additional_headers=headers) as ws:
         await ws.send(request)
         logger.info(await ws.recv(decode=False))
 
         yield AsyncSession(api_client=self._api_client, websocket=ws)
     except TypeError:
       # Try with the older websockets API
-      async with connect(uri, extra_headers=headers) as ws:
+      async with ws_connect(uri, extra_headers=headers) as ws:
         await ws.send(request)
         logger.info(await ws.recv())
 
         yield AsyncSession(api_client=self._api_client, websocket=ws)
+
+
+@_common.experimental_warning(
+    "The SDK's Live API connection with ephemeral token implementation is"
+    ' experimental, and may change in future versions.',
+)
+@contextlib.asynccontextmanager
+async def live_ephemeral_connect(
+    access_token: str,
+    model: Optional[str] = None,
+    config: Optional[types.LiveConnectConfigOrDict] = None,
+) -> AsyncIterator[AsyncSession]:
+  """[Experimental] Connect to the live server using ephermeral token (Gemini Developer API only).
+
+  Note: the live API is currently in experimental.
+
+  Usage:
+
+  .. code-block:: python
+    from google import genai
+
+    config = {}
+    async with genai.live_ephemeral_connect(
+        access_token='auth_tokens/12345',
+        model='...',
+        config=config,
+        http_options=types.HttpOptions(api_version='v1beta'),
+    ) as session:
+      await session.send_client_content(
+          turns=types.Content(
+              role='user',
+              parts=[types.Part(text='hello!')]
+          ),
+          turn_complete=True
+      )
+
+      async for message in session.receive():
+        print(message)
+
+    Args:
+      access_token: The access token to use for the Live session. It can be
+        generated by the `client.tokens.create` method.
+      model: The model to use for the Live session.
+      config: The configuration for the Live session.
+
+    Yields:
+      An AsyncSession object.
+  """
+  if isinstance(config, dict):
+    config = types.LiveConnectConfig(**config)
+
+  http_options = config.http_options if config else None
+
+  base_url = (
+      http_options.base_url
+      if http_options and http_options.base_url
+      else 'https://generativelanguage.googleapis.com/'
+  )
+  api_version = (
+      http_options.api_version
+      if http_options and http_options.api_version
+      else 'v1beta'
+  )
+  internal_client = client.Client(
+      api_key=_DUMMY_KEY,  # Can't be None during initialization
+      http_options=types.HttpOptions(
+          base_url=base_url,
+          api_version=api_version,
+      ),
+  )
+  websocket_base_url = internal_client._api_client._websocket_base_url()
+  uri = f'{websocket_base_url}/ws/google.ai.generativelanguage.{api_version}.GenerativeService.BidiGenerateContentConstrained?access_token={access_token}'
+
+  async with internal_client.aio.live._connect(
+      model=model, config=config, uri=uri
+  ) as session:
+    yield session
 
 
 async def _t_live_connect_config(
@@ -1033,17 +1153,10 @@ async def _t_live_connect_config(
         )
         # Extend the config with the MCP session tools converted to GenAI tools.
         parameter_model_copy.tools.extend(mcp_to_genai_tool_adapter.tools)
-      if McpTool is not None and isinstance(tool, McpTool):
+      elif McpTool is not None and isinstance(tool, McpTool):
         parameter_model_copy.tools.append(mcp_to_gemini_tool(tool))
-    if McpClientSession is not None:
-      parameter_model_copy.tools.extend(
-          tool
-          for tool in parameter_model.tools
-          if (
-              not isinstance(tool, McpClientSession)
-              and not isinstance(tool, McpTool)
-          )
-      )
+      else:
+        parameter_model_copy.tools.append(tool)
 
   if parameter_model_copy.generation_config is not None:
     warnings.warn(

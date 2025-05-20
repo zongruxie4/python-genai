@@ -123,7 +123,7 @@ async def get_connect_message(api_client, model, config=None):
     yield mock_ws
 
   @patch('google.auth.default', new=mock_google_auth_default)
-  @patch.object(live, 'connect', new=mock_connect)
+  @patch.object(live, 'ws_connect', new=mock_connect)
   async def _test_connect():
     live_module = live.AsyncLive(api_client)
     async with live_module.connect(
@@ -799,12 +799,55 @@ async def test_bidi_setup_to_api_with_config_tools_google_search(vertexai):
 
   assert result == expected_result
 
-  # Test for vertex, config is a LiveConnectConfig
+  # Test config is a LiveConnectConfig
   result = await get_connect_message(
       mock_api_client(vertexai=vertexai),
       model='test_model', config=config
   )
 
+  assert result == expected_result
+
+@pytest.mark.parametrize('vertexai', [True, False])
+@pytest.mark.asyncio
+async def test_bidi_setup_to_api_with_config_tools_with_no_mcp(vertexai):
+  config_dict = {
+      'response_modalities': ['TEXT'],
+      'system_instruction': 'test instruction',
+      'generation_config': {'temperature': 0.7},
+      'tools': [{'google_search': {}}],
+  }
+
+  config = types.LiveConnectConfig(**config_dict)
+  expected_result = {
+      'setup': {
+          'generationConfig': {
+              'temperature': 0.7,
+              'responseModalities': ['TEXT'],
+          },
+          'systemInstruction': {
+              'parts': [{'text': 'test instruction'}],
+              'role': 'user',
+          },
+          'tools': [{'googleSearch': {}}],
+      }
+  }
+  if vertexai:
+    expected_result['setup']['model'] = 'projects/test_project/locations/us-central1/publishers/google/models/test_model'
+  else:
+    expected_result['setup']['model'] = 'models/test_model'
+
+  @patch.object(live, "McpClientSession", new=None)
+  @patch.object(live, "McpTool", new=None)
+  async def get_connect_message_no_mcp(config):
+    return await get_connect_message(
+        mock_api_client(vertexai=vertexai),
+        model='test_model', config=config
+    )
+
+  result = await get_connect_message_no_mcp(config_dict)
+  assert result == expected_result
+
+  result = await get_connect_message_no_mcp(config_dict)
   assert result == expected_result
 
 
@@ -1761,7 +1804,7 @@ async def test_connect_with_provided_credentials(mock_websocket):
     async def mock_connect(uri, additional_headers=None):
         yield mock_websocket
 
-    @patch.object(live, "connect", new=mock_connect)
+    @patch.object(live, "ws_connect", new=mock_connect)
     async def _test_connect():
         live_module = live.AsyncLive(client)
         async with live_module.connect(model="test-model"):
@@ -1790,7 +1833,7 @@ async def test_connect_with_default_credentials(mock_websocket):
         yield mock_websocket
 
     @patch("google.auth.default", new=mock_google_auth_default)
-    @patch.object(live, "connect", new=mock_connect)
+    @patch.object(live, "ws_connect", new=mock_connect)
     async def _test_connect():
         live_module = live.AsyncLive(client)
         async with live_module.connect(model="test-model"):

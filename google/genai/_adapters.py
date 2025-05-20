@@ -13,42 +13,40 @@
 # limitations under the License.
 #
 
+import typing
+
 from ._mcp_utils import mcp_to_gemini_tools
 from .types import FunctionCall, Tool
 
-try:
-  from mcp import ClientSession
+if typing.TYPE_CHECKING:
   from mcp import types as mcp_types
-except ImportError as e:
-  import sys
-
-  if sys.version_info < (3, 10):
-    raise ImportError(
-        "MCP Tool requires Python 3.10 or above. Please upgrade your Python"
-        " version."
-    ) from e
-  else:
-    raise e
+  from mcp import ClientSession
 
 
 class McpToGenAiToolAdapter:
   """Adapter for working with MCP tools in a GenAI client."""
 
   def __init__(
-      self, session: ClientSession, list_tools_result: mcp_types.ListToolsResult
+      self,
+      session: "mcp.ClientSession",  # type: ignore # noqa: F821
+      list_tools_result: "mcp_types.ListToolsResult",  # type: ignore
   ) -> None:
     self._mcp_session = session
     self._list_tools_result = list_tools_result
 
   async def call_tool(
       self, function_call: FunctionCall
-  ) -> mcp_types.CallToolResult:
+  ) -> "mcp_types.CallToolResult":  # type: ignore
     """Calls a function on the MCP server."""
     name = function_call.name if function_call.name else ""
     arguments = dict(function_call.args) if function_call.args else {}
-    return await self._mcp_session.call_tool(
-        name=name,
-        arguments=arguments,
+
+    return typing.cast(
+        "mcp_types.CallToolResult",
+        await self._mcp_session.call_tool(
+            name=name,
+            arguments=arguments,
+        ),
     )
 
   @property

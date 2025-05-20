@@ -5566,7 +5566,7 @@ class Models(_api_module.BaseModule):
 
     Some models support multimodal input and output.
 
-    Built-in MCP support is a preview feature.
+    Built-in MCP support is an experimental feature.
 
     Usage:
 
@@ -5702,7 +5702,7 @@ class Models(_api_module.BaseModule):
 
     Some models support multimodal input and output.
 
-    Built-in MCP support is a preview feature.
+    Built-in MCP support is an experimental feature.
 
     Usage:
 
@@ -7077,7 +7077,7 @@ class AsyncModels(_api_module.BaseModule):
 
     Some models support multimodal input and output.
 
-    Built-in MCP support is a preview feature.
+    Built-in MCP support is an experimental feature.
 
     Usage:
 
@@ -7200,7 +7200,7 @@ class AsyncModels(_api_module.BaseModule):
 
     Some models support multimodal input and output.
 
-    Built-in MCP support is a preview feature.
+    Built-in MCP support is an experimental feature.
 
     Usage:
 
